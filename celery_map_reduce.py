@@ -4,7 +4,7 @@ from celery import Celery, chord, chain
 from toolz.itertoolz import partition_all, concat
 
 app = Celery('celery_map_reduce',
-    broker='amqp://api:api@localhost//', backend='redis://127.0.0.1')
+    broker='redis://localhost', backend='redis://localhost')
 
 app.conf.CELERY_ACCEPT_CONTENT = ['json']
 app.conf.CELERY_TASK_SERIALIZER = 'json'
