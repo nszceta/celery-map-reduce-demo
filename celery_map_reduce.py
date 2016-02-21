@@ -28,19 +28,11 @@ def map(data):
 
 
 @app.task
-def mapreduce(data):
+def mapreduce(chunk_size):
     """ A long running task which splits up the input data to many workers """
-    maps = (map.s(x) for x in data)
-    mapreduce = chord(maps)(reduce.s())
-    return {'asyncresult_id': mapreduce.id}
-
-
-@app.task
-def prepper(input_data):
-    """ A long running task which creates the data for our map """
-   
+    # create some sample data for our summation function
     data = []
-    for i in range(input_data):
+    for i in range(40):
         x = []
         for j in range(random.randrange(10) + 5):
             x.append(random.randrange(100))
@@ -48,31 +40,35 @@ def prepper(input_data):
     for row in data:
         print('input -> ' + str(row))
 
-    chunk_size = 4
-    return list(partition_all(chunk_size, data))
+    # break up our data into chunks and create a dynamic list of workers
+    maps = (map.s(x) for x in partition_all(chunk_size, data))
+    mapreducer = chord(maps)(reduce.s())
+    return {'chord_id': mapreducer.id}
 
 
-def create_work(init_input):
+def create_work(chunk_size):
     """ A fast task for initiating our map function """
-
-    c = chain((prepper.s(init_input), mapreduce.s()))()
-    mapper_group_id = c.get()['asyncresult_id']
-    return mapper_group_id
+    return mapreduce.delay(chunk_size).id
 
 
-def get_work(asyncresult_id):
+def get_work(chord_id):
     """ A fast task for checking our map result """
 
-    if app.AsyncResult(asyncresult_id).ready():
+    if app.AsyncResult(chord_id).ready():
+        result_id = app.AsyncResult(chord_id).get()['chord_id']
+    else:
+        return {'status': 'pending', 'stage': 1}
+
+    if app.AsyncResult(result_id).ready():
         return {
             'status': 'success',
-            'results': app.AsyncResult(asyncresult_id).get()}
+            'results': app.AsyncResult(result_id).get()}
     else:
-        return {'status': 'pending'}
+        return {'status': 'pending', 'stage': 2}
 
 
 if __name__ == '__main__':
-    my_id = create_work(30)
+    my_id = create_work(chunk_size=4)
 
     for i in range(100):
         time.sleep(1)
