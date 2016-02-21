@@ -1,4 +1,3 @@
-import time
 import random
 from celery import Celery, chord, chain
 from toolz.itertoolz import partition_all, concat
@@ -21,8 +20,6 @@ def map(data):
     """ Map worker """
     results = []
     for chunk in data:
-        # artificial sleep
-        time.sleep(random.random())
         results.append(sum(chunk))
     return results
 
@@ -32,7 +29,7 @@ def mapreduce(chunk_size):
     """ A long running task which splits up the input data to many workers """
     # create some sample data for our summation function
     data = []
-    for i in range(40):
+    for i in range(10000):
         x = []
         for j in range(random.randrange(10) + 5):
             x.append(random.randrange(100))
